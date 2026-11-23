@@ -1,0 +1,5 @@
+# Build output (recreate with ./build.sh)
+GifPaste.app/
+
+# macOS
+.DS_Store

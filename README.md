@@ -1,0 +1,38 @@
+# GifPaste
+
+A minimal standalone GIPHY search for macOS. Press ⌃⌥G, search, press ↵, and the GIF is pasted into the app you were typing in.
+Simplified from the Raycast "GIF Search" extension (MIT): GIPHY only, no favorites, recents, or other providers.
+
+## Setup
+
+1. Install the compiler (once): `xcode-select --install`
+2. Build: `chmod +x build.sh && ./build.sh`
+3. Move `GifPaste.app` to `/Applications` and open it. If Gatekeeper blocks it: right-click → Open.
+4. Enter a GIPHY API key when prompted. Get a free one at developers.giphy.com (Create an API Key → API).
+5. Allow GifPaste under System Settings → Privacy & Security → Accessibility. This lets it send ⌘V. Without it, the GIF is only copied and you press ⌘V yourself.
+
+Optional: System Settings → General → Login Items → add GifPaste.
+
+## Use
+
+| Key | Action |
+|---|---|
+| ⌃⌥G (default) | Open/close the search |
+| ↑ ↓ ← → | Select a GIF |
+| ↵ | Paste into the previous app |
+| ⌘↵ | Copy only |
+| Esc | Close |
+
+An empty search shows trending GIFs. Clicking a GIF also pastes it.
+
+The GIF is pasted as a file named after your search term (for example `thumbs up.gif`). Slack and similar apps show that name next to the GIF. Trending GIFs use their GIPHY title instead. To drop the ".gif" from the name, untick "Add .gif to File Name" in the menu bar menu. Whether Slack still animates GIFs without the extension is untested. The Raycast extension works the same way, but it names the file after the GIF's title.
+
+## Notes
+
+- To change the shortcut: menu bar icon → Change Shortcut…, then press the new combo (it must include ⌘, ⌃ or ⌥). It's saved across restarts. Esc cancels, and "Reset" restores ⌃⌥G.
+- To change the rating (default `g`) or language, edit `Config` at the top of `GifPaste.swift` and rebuild.
+- After each rebuild, macOS treats the app as new: remove GifPaste from Accessibility and add it again.
+- The key is stored in your login Keychain (Keychain Access → search "GifPaste"). To change it: menu bar icon → Set GIPHY API Key…. The env var `GIPHY_API_KEY` overrides it.
+- After a rebuild, macOS may ask once whether GifPaste may use the Keychain item. Click "Always Allow".
+- A GIPHY development key is rate-limited (roughly 100 requests per hour).
+- GIPHY's terms require "Powered by GIPHY" attribution, which is shown in the panel footer.
