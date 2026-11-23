@@ -6,6 +6,7 @@
 import Carbon
 import Cocoa
 import Security
+import ServiceManagement
 
 // MARK: - Settings
 
@@ -231,7 +232,7 @@ final class GifCell: NSImageView {
 @MainActor var sharedDelegate: AppDelegate?
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate, NSWindowDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate, NSWindowDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var panel: SearchPanel!
     private let searchField = NSSearchField()
@@ -242,6 +243,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
     private var hotKey = HotKey.load()
     private var searchMenuItem: NSMenuItem!
     private var extensionMenuItem: NSMenuItem!
+    private var launchMenuItem: NSMenuItem?
     /// When false, the pasted file is named "thumbs up" instead of "thumbs up.gif".
     private var includeGifExtension: Bool {
         get { UserDefaults.standard.object(forKey: "includeGifExtension") as? Bool ?? true }
@@ -314,6 +316,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
             .target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit GifPaste", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        if #available(macOS 13, *) {
+            let item = menu.insertItem(
+                withTitle: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "",
+                at: menu.items.count - 2) // above the separator before Quit
+            item.target = self
+            launchMenuItem = item
+        }
+        menu.delegate = self
         statusItem.menu = menu
     }
 
@@ -386,6 +396,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
             key.keyCode, key.carbonModifiers, id, GetApplicationEventTarget(), 0, &hotKeyRef)
         searchMenuItem.title = "Search GIFs  \(key.label)"
         return status == noErr
+    }
+
+    // MARK: Launch at login (macOS 13+, SMAppService)
+
+    func menuWillOpen(_ menu: NSMenu) {
+        // Refresh in case it was changed in System Settings → Login Items.
+        guard #available(macOS 13, *) else { return }
+        launchMenuItem?.state = SMAppService.mainApp.status == .enabled ? .on : .off
+    }
+
+    @objc func toggleLaunchAtLogin() {
+        guard #available(macOS 13, *) else { return }
+        let service = SMAppService.mainApp
+        do {
+            if service.status == .enabled {
+                try service.unregister()
+            } else {
+                try service.register()
+            }
+        } catch {
+            showAlert("Could not change Launch at Login", error.localizedDescription)
+        }
+        if service.status == .requiresApproval {
+            showAlert("Approval needed", "Allow GifPaste in System Settings → General → Login Items.")
+            SMAppService.openSystemSettingsLoginItems()
+        }
+        launchMenuItem?.state = service.status == .enabled ? .on : .off
     }
 
     @objc func toggleGifExtension() {

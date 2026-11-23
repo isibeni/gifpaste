@@ -7,11 +7,11 @@ Simplified from the Raycast "GIF Search" extension (MIT): GIPHY only, no favorit
 
 1. Install the compiler (once): `xcode-select --install`
 2. Build: `chmod +x build.sh && ./build.sh`
-3. Move `GifPaste.app` to `/Applications` and open it. If Gatekeeper blocks it: right-click → Open.
+3. Run `./build.sh install` to copy it to `/Applications` and start it. If Gatekeeper blocks it: right-click → Open.
 4. Enter a GIPHY API key when prompted. Get a free one at developers.giphy.com (Create an API Key → API).
 5. Allow GifPaste under System Settings → Privacy & Security → Accessibility. This lets it send ⌘V. Without it, the GIF is only copied and you press ⌘V yourself.
 
-Optional: System Settings → General → Login Items → add GifPaste.
+Start at login: run `./build.sh install` (copies the app to /Applications and starts it), then tick "Launch at Login" in the menu bar menu. Requires macOS 13+.
 
 ## Use
 

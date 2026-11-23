@@ -1,5 +1,6 @@
 #!/bin/bash
 # Builds GifPaste.app next to this script. Requires: xcode-select --install
+# ./build.sh install  → also copies it to /Applications and (re)starts it
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -8,7 +9,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 
 swiftc -O -parse-as-library -swift-version 5 \
-  -framework Cocoa -framework Carbon -framework Security \
+  -framework Cocoa -framework Carbon -framework Security -framework ServiceManagement \
   GifPaste.swift -o "$APP/Contents/MacOS/GifPaste"
 
 cat > "$APP/Contents/Info.plist" <<'EOF'
@@ -29,3 +30,11 @@ EOF
 
 codesign --force --sign - "$APP"
 echo "Built $(pwd)/$APP"
+
+if [[ "${1:-}" == "install" ]]; then
+  pkill -x GifPaste || true
+  rm -rf "/Applications/$APP"
+  cp -R "$APP" /Applications/
+  open "/Applications/$APP"
+  echo "Installed and started /Applications/$APP"
+fi
