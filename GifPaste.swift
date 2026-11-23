@@ -246,7 +246,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
     private var launchMenuItem: NSMenuItem?
     /// When false, the pasted file is named "thumbs up" instead of "thumbs up.gif".
     private var includeGifExtension: Bool {
-        get { UserDefaults.standard.object(forKey: "includeGifExtension") as? Bool ?? true }
+        get { UserDefaults.standard.object(forKey: "includeGifExtension") as? Bool ?? false }
         set { UserDefaults.standard.set(newValue, forKey: "includeGifExtension") }
     }
 
