@@ -298,7 +298,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
 
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        if let image = NSImage(systemSymbolName: "photo.on.rectangle.angled", accessibilityDescription: "GifPaste") {
+        if let image = Bundle.main.image(forResource: "MenuBarIcon") {
+            image.isTemplate = true // macOS tints it for light/dark menu bars
+            image.size = NSSize(width: 30, height: 18)
+            image.accessibilityDescription = "GifPaste"
+            statusItem.button?.image = image
+        } else if let image = NSImage(systemSymbolName: "photo.on.rectangle.angled", accessibilityDescription: "GifPaste") {
             statusItem.button?.image = image
         } else {
             statusItem.button?.title = "GIF"

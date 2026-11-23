@@ -36,3 +36,4 @@ The GIF is pasted as a file named after your search term (for example `thumbs up
 - A GIPHY development key is rate-limited (roughly 100 requests per hour).
 - GIPHY's terms require "Powered by GIPHY" attribution, which is shown in the panel footer.
 - App icon: source is `icon/icon.svg`; `icon/AppIcon.icns` is generated from it (rendered at 1024 px).
+- Menu bar icon: source is `icon/menubar.svg`; `icon/MenuBarIcon.png` and `@2x.png` are generated from it (template image, adapts to light/dark mode).
