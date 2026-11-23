@@ -6,7 +6,8 @@ cd "$(dirname "$0")"
 
 APP="GifPaste.app"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+cp icon/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 swiftc -O -parse-as-library -swift-version 5 \
   -framework Cocoa -framework Carbon -framework Security -framework ServiceManagement \
@@ -20,6 +21,7 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
   <key>CFBundleIdentifier</key><string>local.gifpaste</string>
   <key>CFBundleName</key><string>GifPaste</string>
   <key>CFBundleExecutable</key><string>GifPaste</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>LSMinimumSystemVersion</key><string>12.0</string>

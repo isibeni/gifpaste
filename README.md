@@ -6,12 +6,11 @@ Simplified from the Raycast "GIF Search" extension (MIT): GIPHY only, no favorit
 ## Setup
 
 1. Install the compiler (once): `xcode-select --install`
-2. Build: `chmod +x build.sh && ./build.sh`
-3. Run `./build.sh install` to copy it to `/Applications` and start it. If Gatekeeper blocks it: right-click → Open.
-4. Enter a GIPHY API key when prompted. Get a free one at developers.giphy.com (Create an API Key → API).
-5. Allow GifPaste under System Settings → Privacy & Security → Accessibility. This lets it send ⌘V. Without it, the GIF is only copied and you press ⌘V yourself.
+2. Run `./build.sh install`. It builds the app, copies it to `/Applications` and starts it. If Gatekeeper blocks it: right-click → Open.
+3. Enter a GIPHY API key when prompted. Get a free one at developers.giphy.com (Create an API Key → API).
+4. Allow GifPaste under System Settings → Privacy & Security → Accessibility. This lets it send ⌘V. Without it, the GIF is only copied and you press ⌘V yourself.
 
-Start at login: run `./build.sh install` (copies the app to /Applications and starts it), then tick "Launch at Login" in the menu bar menu. Requires macOS 13+.
+Start at login: tick "Launch at Login" in the menu bar menu (macOS 13+).
 
 ## Use
 
@@ -36,3 +35,4 @@ The GIF is pasted as a file named after your search term (for example `thumbs up
 - After a rebuild, macOS may ask once whether GifPaste may use the Keychain item. Click "Always Allow".
 - A GIPHY development key is rate-limited (roughly 100 requests per hour).
 - GIPHY's terms require "Powered by GIPHY" attribution, which is shown in the panel footer.
+- App icon: source is `icon/icon.svg`; `icon/AppIcon.icns` is generated from it (rendered at 1024 px).
