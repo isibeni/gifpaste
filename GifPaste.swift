@@ -17,6 +17,13 @@ enum Config {
     static let columns = 4
 }
 
+// MARK: - Variant ("GifPaste Dev" is built with `scripts/build.sh dev` and runs next to the release)
+
+enum AppVariant {
+    static let isDev = Bundle.main.object(forInfoDictionaryKey: "GifPasteDevBuild") as? Bool == true
+    static let name = isDev ? "GifPaste Dev" : "GifPaste"
+}
+
 // MARK: - Shortcut (stored in UserDefaults, changeable from the menu bar)
 
 struct HotKey {
@@ -24,7 +31,9 @@ struct HotKey {
     var carbonModifiers: UInt32
     var label: String
 
-    static let `default` = HotKey(keyCode: UInt32(kVK_ANSI_G), carbonModifiers: UInt32(controlKey | optionKey), label: "⌃⌥G")
+    static let `default` = AppVariant.isDev
+        ? HotKey(keyCode: UInt32(kVK_ANSI_G), carbonModifiers: UInt32(controlKey | optionKey | shiftKey), label: "⌃⌥⇧G")
+        : HotKey(keyCode: UInt32(kVK_ANSI_G), carbonModifiers: UInt32(controlKey | optionKey), label: "⌃⌥G")
 
     static func load() -> HotKey {
         let d = UserDefaults.standard
@@ -80,7 +89,7 @@ struct HotKey {
 // MARK: - API key storage (login Keychain, item "GifPaste" / "giphy-api-key")
 
 enum APIKeyStore {
-    private static let service = "GifPaste"
+    private static let service = AppVariant.name // dev build keeps its own key
     private static let account = "giphy-api-key"
     private static var cached: String?
 
@@ -335,6 +344,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
         } else {
             statusItem.button?.title = "GIF"
         }
+        if AppVariant.isDev {
+            statusItem.button?.title = "DEV"
+            statusItem.button?.imagePosition = .imageLeft
+            statusItem.button?.font = .systemFont(ofSize: 9, weight: .bold)
+        }
         let menu = NSMenu()
         searchMenuItem = menu.addItem(withTitle: "", action: #selector(togglePanel), keyEquivalent: "")
         searchMenuItem.target = self
@@ -347,7 +361,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
         menu.addItem(withTitle: "Set GIPHY API Key…", action: #selector(promptForAPIKey), keyEquivalent: "")
             .target = self
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit GifPaste", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: "Quit \(AppVariant.name)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         if #available(macOS 13, *) {
             let item = menu.insertItem(
                 withTitle: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "",
@@ -462,12 +476,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
 
     @objc func toggleLaunchAtLogin() {
         guard #available(macOS 13, *) else { return }
+        setLaunchAtLogin(SMAppService.mainApp.status != .enabled)
+    }
+
+    private func setLaunchAtLogin(_ enabled: Bool) {
+        guard #available(macOS 13, *) else { return }
         let service = SMAppService.mainApp
+        guard enabled != (service.status == .enabled) else { return }
         do {
-            if service.status == .enabled {
-                try service.unregister()
-            } else {
+            if enabled {
                 try service.register()
+            } else {
+                try service.unregister()
             }
         } catch {
             showAlert("Could not change Launch at Login", error.localizedDescription)
@@ -791,12 +811,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
     // MARK: API key
 
     @objc func promptForAPIKey() {
+        let firstRun = APIKeyStore.load() == nil
         let alert = NSAlert()
-        alert.messageText = "GIPHY API key"
+        alert.messageText = firstRun ? "Welcome to GifPaste" : "GIPHY API key"
         alert.informativeText = "Create a free key at developers.giphy.com (Create an API Key → API)."
         let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
-        field.placeholderString = APIKeyStore.load() == nil ? "Paste key" : "Key saved. Paste a new one to replace it"
-        alert.accessoryView = field
+        field.placeholderString = firstRun ? "Paste key" : "Key saved. Paste a new one to replace it"
+
+        // On first run, also offer "Launch at Login" (macOS 13+). Later it's in the menu bar menu.
+        var launchCheckbox: NSButton?
+        if firstRun, #available(macOS 13, *) {
+            let checkbox = NSButton(checkboxWithTitle: "Launch GifPaste at login", target: nil, action: nil)
+            checkbox.state = .on
+            checkbox.frame = NSRect(x: 0, y: 0, width: 320, height: 20)
+            field.frame.origin.y = 30
+            let container = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 54))
+            container.addSubview(field)
+            container.addSubview(checkbox)
+            alert.accessoryView = container
+            launchCheckbox = checkbox
+        } else {
+            alert.accessoryView = field
+        }
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
         alert.window.initialFirstResponder = field
@@ -811,6 +847,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
             lastQuery = nil
         } catch {
             NSAlert(error: error).runModal()
+            return
+        }
+        if let launchCheckbox {
+            setLaunchAtLogin(launchCheckbox.state == .on)
         }
     }
 }

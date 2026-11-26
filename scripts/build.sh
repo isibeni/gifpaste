@@ -5,6 +5,8 @@
 #   scripts/build.sh           build only
 #   scripts/build.sh install   build, copy to /Applications and (re)start it
 #   scripts/build.sh zip       build and create GifPaste-<version>.zip (used by the release workflow)
+#   scripts/build.sh dev       build "GifPaste Dev" (own bundle ID, settings, key and shortcut ⌃⌥⇧G),
+#                              copy to /Applications and (re)start it — runs next to the Homebrew version
 #
 # Environment:
 #   VERSION        app version (default: latest git tag without "v", else 0.0.0-dev)
@@ -12,8 +14,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."   # repo root
 
-APP="GifPaste.app"
-BUNDLE_ID="io.github.isibeni.gifpaste"
+MODE="${1:-}"
+if [[ "$MODE" == "dev" ]]; then
+  APP="GifPaste Dev.app"; EXEC="GifPasteDev"; BUNDLE_ID="io.github.isibeni.gifpaste.dev"; DEV_BUILD="<true/>"
+else
+  APP="GifPaste.app"; EXEC="GifPaste"; BUNDLE_ID="io.github.isibeni.gifpaste"; DEV_BUILD="<false/>"
+fi
 VERSION="${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || true)}"
 VERSION="${VERSION:-0.0.0-dev}"
 
@@ -39,7 +45,7 @@ for ARCH in arm64 x86_64; do
     -framework Cocoa -framework Carbon -framework Security -framework ServiceManagement \
     GifPaste.swift -o "$BUILD/GifPaste-$ARCH"
 done
-lipo -create "$BUILD/GifPaste-arm64" "$BUILD/GifPaste-x86_64" -output "$APP/Contents/MacOS/GifPaste"
+lipo -create "$BUILD/GifPaste-arm64" "$BUILD/GifPaste-x86_64" -output "$APP/Contents/MacOS/$EXEC"
 
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -47,8 +53,9 @@ cat > "$APP/Contents/Info.plist" <<EOF
 <plist version="1.0">
 <dict>
   <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
-  <key>CFBundleName</key><string>GifPaste</string>
-  <key>CFBundleExecutable</key><string>GifPaste</string>
+  <key>CFBundleName</key><string>${APP%.app}</string>
+  <key>CFBundleExecutable</key><string>$EXEC</string>
+  <key>GifPasteDevBuild</key>$DEV_BUILD
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
@@ -63,9 +70,9 @@ codesign --force --sign "$SIGN_IDENTITY" "$APP" 2>&1 | grep -v "unable to build 
 codesign --verify "$APP"
 echo "Built $(pwd)/$APP  (version $VERSION, signed: $SIGN_IDENTITY)"
 
-case "${1:-}" in
-  install)
-    pkill -x GifPaste || true
+case "$MODE" in
+  install|dev)
+    pkill -x "$EXEC" || true
     rm -rf "/Applications/$APP"
     cp -R "$APP" /Applications/
     open "/Applications/$APP"

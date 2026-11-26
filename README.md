@@ -3,14 +3,24 @@
 A minimal standalone GIPHY search for macOS. Press ⌃⌥G, search, press ↵, and the GIF is pasted into the app you were typing in.
 Simplified from the Raycast "GIF Search" extension (MIT): GIPHY only, no favorites, recents, or other providers.
 
-## Setup
+## Install
 
-1. Install the compiler (once): `xcode-select --install`
-2. Run `scripts/build.sh install`. It builds the app, copies it to `/Applications` and starts it.
-3. Enter a GIPHY API key when prompted. Get a free one at developers.giphy.com (Create an API Key → API).
-4. Allow GifPaste under System Settings → Privacy & Security → Accessibility. This lets it send ⌘V. Without it, the GIF is only copied and you press ⌘V yourself.
+```bash
+brew install isibeni/tap/gifpaste
+```
 
-Start at login: tick "Launch at Login" in the menu bar menu (macOS 13+).
+1. Enter a GIPHY API key when prompted. Get a free one at developers.giphy.com (Create an API Key → API). The same dialog offers "Launch at login" (macOS 13+).
+2. Allow GifPaste under System Settings → Privacy & Security → Accessibility. This lets it send ⌘V. Without it, the GIF is only copied and you press ⌘V yourself.
+
+Update with `brew upgrade`.
+
+## Development
+
+Requires the Xcode Command Line Tools (`xcode-select --install`).
+
+- `scripts/build.sh dev` builds "GifPaste Dev" and starts it from `/Applications`. It has its own settings, API key and login item, uses ⌃⌥⇧G and shows "DEV" in the menu bar, so it runs next to the Homebrew version.
+- `scripts/build.sh install` builds the regular app into `/Applications`. That replaces the Homebrew copy, so run `brew uninstall gifpaste` first.
+- Releases are automatic: see `AGENTS.md` for the commit convention.
 
 ## Use
 

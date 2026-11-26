@@ -13,4 +13,4 @@ Never edit `CHANGELOG.md`, `version.txt` or `.release-please-manifest.json` by h
 
 ## Build
 
-`scripts/build.sh install` builds, installs to /Applications and restarts the app.
+`scripts/build.sh dev` builds "GifPaste Dev" (separate bundle ID, settings and API key, shortcut ⌃⌥⇧G) and restarts it. Use it for testing; it runs next to the Homebrew version.
