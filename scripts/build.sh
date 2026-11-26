@@ -1,8 +1,8 @@
 #!/bin/bash
 # Builds GifPaste.app next to this script. Requires: xcode-select --install
-# ./build.sh install  → also copies it to /Applications and (re)starts it
+# scripts/build.sh install  → also copies it to /Applications and (re)starts it
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."   # repo root
 
 APP="GifPaste.app"
 rm -rf "$APP"

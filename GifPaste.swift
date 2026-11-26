@@ -1,7 +1,7 @@
 // GifPaste — minimal standalone GIPHY search that pastes the GIF into the app you were typing in.
 // Simplified from the Raycast "GIF Search" extension (MIT): GIPHY only, search + trending, paste/copy.
 //
-// Build: ./build.sh   (needs Xcode Command Line Tools: xcode-select --install)
+// Build: scripts/build.sh   (needs Xcode Command Line Tools: xcode-select --install)
 
 import Carbon
 import Cocoa
