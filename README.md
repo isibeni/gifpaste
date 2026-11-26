@@ -34,7 +34,7 @@ Requires the Xcode Command Line Tools (`xcode-select --install`).
 
 An empty search shows trending GIFs. Clicking a GIF also pastes it.
 
-The GIF is pasted as a file named after your search term (for example `thumbs up`). Slack and similar apps show that name next to the GIF. Trending GIFs use their GIPHY title instead. By default the name has no ".gif" (e.g. `thumbs up`). To add it, tick "Add .gif to File Name" in the menu bar menu. Whether Slack still animates GIFs without the extension is untested. The Raycast extension works the same way, but it names the file after the GIF's title.
+The GIF is pasted as a file named after your search term (for example `thumbs up`). Slack and similar apps show that name next to the GIF. Trending GIFs use their GIPHY title instead. By default the name has no ".gif" (e.g. `thumbs up`). To add it, tick "Add .gif to File Name" in the menu bar menu. Slack still shows it as an animated GIF.
 
 ## Notes
 
