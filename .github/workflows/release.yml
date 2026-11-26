@@ -1,0 +1,82 @@
+# Release: push a tag like v1.2.0
+#   → builds and signs GifPaste.app, publishes a GitHub release with the zip
+#   → updates the cask in isibeni/homebrew-tap (version + sha256)
+#
+# Secrets:
+#   SIGNING_CERT_P12_BASE64, SIGNING_CERT_PASSWORD  (scripts/create-signing-cert.sh)
+#   TAP_DEPLOY_KEY                                    (deploy key with write access to homebrew-tap)
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Import signing certificate
+        env:
+          P12_BASE64: ${{ secrets.SIGNING_CERT_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 16)
+          base64 --decode <<< "$P12_BASE64" > "$RUNNER_TEMP/signing.p12"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/signing.p12" -k "$KEYCHAIN" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/signing.p12"
+
+          # Sign by SHA-1 so codesign can't pick a wrong identity
+          IDENTITY=$(security find-identity -p codesigning "$KEYCHAIN" | awk '/"GifPaste Signing"/ {print $2; exit}')
+          test -n "$IDENTITY" || { echo "Signing identity not found"; exit 1; }
+          echo "SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: scripts/build.sh zip
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "GifPaste-$VERSION.zip" \
+            --title "GifPaste $VERSION" --generate-notes
+
+      - name: Update Homebrew cask
+        env:
+          TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
+        run: |
+          SHA256=$(shasum -a 256 "GifPaste-$VERSION.zip" | cut -d' ' -f1)
+
+          install -m 600 /dev/null "$RUNNER_TEMP/tap_key"
+          printf '%s\n' "$TAP_DEPLOY_KEY" > "$RUNNER_TEMP/tap_key"
+          export GIT_SSH_COMMAND="ssh -i $RUNNER_TEMP/tap_key -o IdentitiesOnly=yes"
+
+          git clone --depth 1 git@github.com:isibeni/homebrew-tap.git "$RUNNER_TEMP/tap"
+          cd "$RUNNER_TEMP/tap"
+          sed -i '' -E "s/^  version \".*\"/  version \"$VERSION\"/" Casks/gifpaste.rb
+          sed -i '' -E "s/^  sha256 .*/  sha256 \"$SHA256\"/" Casks/gifpaste.rb
+          git diff
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "gifpaste $VERSION"
+          git push
+          rm "$RUNNER_TEMP/tap_key"

@@ -3,3 +3,6 @@ GifPaste.app/
 
 # macOS
 .DS_Store
+
+# Release archives (scripts/build.sh zip)
+GifPaste-*.zip
