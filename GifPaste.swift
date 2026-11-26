@@ -133,6 +133,7 @@ struct GiphyGif: Decodable {
         let fixed_width_small: Rendition?
         let fixed_width: Rendition?
         let preview_gif: Rendition?
+        let downsized: Rendition?
     }
 
     let id: String
@@ -146,6 +147,12 @@ struct GiphyGif: Decodable {
     }
 
     var originalURL: URL? { images.original?.url.flatMap { URL(string: $0) } }
+
+    /// Bigger, still lightweight rendition for the preview pane (GIPHY "downsized" is < 2 MB).
+    var largePreviewURL: URL? {
+        [images.downsized?.url, images.fixed_width?.url, images.original?.url]
+            .compactMap { $0 }.first.flatMap { URL(string: $0) }
+    }
 
     /// File name shown by Slack/Teams etc. next to the pasted GIF.
     /// Uses the search term ("thumbs up.gif"); falls back to the GIPHY title for trending GIFs.
@@ -221,10 +228,23 @@ final class FlippedView: NSView {
 
 final class GifCell: NSImageView {
     var onClick: (() -> Void)?
+    var onHover: (() -> Void)?
     var isSelectedCell = false {
         didSet { layer?.borderWidth = isSelectedCell ? 3 : 0 }
     }
+    private var trackingArea: NSTrackingArea?
+
     override func mouseDown(with event: NSEvent) { onClick?() }
+    override func mouseEntered(with event: NSEvent) { onHover?() }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingArea { removeTrackingArea(trackingArea) }
+        let area = NSTrackingArea(
+            rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self)
+        addTrackingArea(area)
+        trackingArea = area
+    }
 }
 
 // MARK: - App
@@ -259,6 +279,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
     private var searchTask: Task<Void, Never>?
     private var isPasting = false
     private let previewCache = NSCache<NSURL, NSImage>()
+    private let largePreviewCache = NSCache<NSURL, NSImage>()
+    private let previewView = NSImageView()
+    private let previewTitle = NSTextField(labelWithString: "")
+    private var previewToken = 0
+    /// Mouse position at the last hover/keyboard move. Hover only changes the selection when the
+    /// mouse really moved, so cells scrolling under a resting cursor don't steal keyboard selection.
+    private var lastPointer: NSPoint?
 
     private let helpText = "↑↓←→ select · ↵ paste · ⌘↵ copy only · esc close — Powered by GIPHY"
 
@@ -333,7 +360,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
     }
 
     private func setupPanel() {
-        let size = NSSize(width: 620, height: 460)
+        let size = NSSize(width: 920, height: 460)
+        let gridWidth: CGFloat = 604
         panel = SearchPanel(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel],
@@ -365,11 +393,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
         searchField.action = #selector(searchFieldAction)
         background.addSubview(searchField)
 
-        scrollView.frame = NSRect(x: 8, y: 34, width: size.width - 16, height: 354)
+        scrollView.frame = NSRect(x: 8, y: 34, width: gridWidth, height: 354)
         scrollView.hasVerticalScroller = true
         scrollView.drawsBackground = false
         scrollView.documentView = gridView
         background.addSubview(scrollView)
+
+        // Preview pane: bigger animated version of the selected/hovered GIF
+        let previewX = 8 + gridWidth + 8
+        let previewWidth = size.width - previewX - 16
+        largePreviewCache.countLimit = 40
+        previewView.frame = NSRect(x: previewX, y: 66, width: previewWidth, height: 314)
+        previewView.wantsLayer = true
+        previewView.layer?.cornerRadius = 8
+        previewView.layer?.masksToBounds = true
+        previewView.layer?.backgroundColor = NSColor.quaternaryLabelColor.cgColor
+        previewView.imageScaling = .scaleProportionallyUpOrDown
+        previewView.animates = true
+        previewView.isEditable = false
+        background.addSubview(previewView)
+
+        previewTitle.frame = NSRect(x: previewX, y: 38, width: previewWidth, height: 20)
+        previewTitle.font = .systemFont(ofSize: 12, weight: .medium)
+        previewTitle.textColor = .secondaryLabelColor
+        previewTitle.lineBreakMode = .byTruncatingTail
+        previewTitle.alignment = .center
+        background.addSubview(previewTitle)
 
         statusLabel.frame = NSRect(x: 16, y: 10, width: size.width - 32, height: 18)
         statusLabel.font = .systemFont(ofSize: 11)
@@ -595,12 +644,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
                 self?.select(index)
                 self?.pasteSelected(copyOnly: false)
             }
+            cell.onHover = { [weak self] in
+                guard let self else { return }
+                let pointer = NSEvent.mouseLocation
+                defer { self.lastPointer = pointer }
+                guard pointer != self.lastPointer, index != self.selectedIndex else { return }
+                self.select(index, scroll: false)
+            }
             gridView.addSubview(cell)
             cells.append(cell)
             loadPreview(gif, into: cell, generation: searchGeneration)
         }
         selectedIndex = 0
-        select(0)
+        lastPointer = NSEvent.mouseLocation
+        if cells.isEmpty { showPreview(for: nil) } else { select(0) }
         gridView.scroll(.zero)
     }
 
@@ -616,21 +673,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
             guard let self, generation == self.searchGeneration else { return }
             self.previewCache.setObject(image, forKey: url as NSURL)
             cell.image = image
+            // Thumbnail arrived after the cell was selected: use it as placeholder in the preview pane.
+            if self.previewView.image == nil, self.cells.indices.contains(self.selectedIndex),
+               self.cells[self.selectedIndex] === cell {
+                self.previewView.image = image
+            }
         }
     }
 
-    private func select(_ index: Int) {
+    private func select(_ index: Int, scroll: Bool = true) {
         guard !cells.isEmpty else { return }
         if selectedIndex < cells.count { cells[selectedIndex].isSelectedCell = false }
         selectedIndex = index
         let cell = cells[index]
         cell.isSelectedCell = true
-        cell.scrollToVisible(cell.bounds.insetBy(dx: 0, dy: -8))
+        if scroll { cell.scrollToVisible(cell.bounds.insetBy(dx: 0, dy: -8)) }
+        showPreview(for: index)
     }
 
     private func move(by delta: Int) {
         guard !cells.isEmpty else { return }
+        lastPointer = NSEvent.mouseLocation
         select(min(max(selectedIndex + delta, 0), cells.count - 1))
+    }
+
+    /// Shows the grid thumbnail at once, then swaps in the larger rendition.
+    /// Preview images come from GIPHY's media CDN, not the API, so they don't count against the API key's limit.
+    private func showPreview(for index: Int?) {
+        previewToken += 1
+        let token = previewToken
+        guard let index, index < gifs.count else {
+            previewView.image = nil
+            previewTitle.stringValue = ""
+            return
+        }
+        let gif = gifs[index]
+        previewTitle.stringValue = gif.title ?? ""
+        previewTitle.toolTip = gif.title
+        previewView.image = gif.previewURL.flatMap { previewCache.object(forKey: $0 as NSURL) }
+
+        guard let url = gif.largePreviewURL else { return }
+        if let cached = largePreviewCache.object(forKey: url as NSURL) {
+            previewView.image = cached
+            return
+        }
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 150_000_000) // skip GIFs you only pass over
+            guard let self, token == self.previewToken else { return }
+            guard let result = try? await URLSession.shared.data(from: url),
+                  let image = NSImage(data: result.0) else { return }
+            self.largePreviewCache.setObject(image, forKey: url as NSURL)
+            guard token == self.previewToken else { return }
+            self.previewView.image = image
+        }
     }
 
     // MARK: Keyboard
