@@ -1,31 +1,50 @@
-# Release: push a tag like v1.2.0
-#   → builds and signs GifPaste.app, publishes a GitHub release with the zip
-#   → updates the cask in isibeni/homebrew-tap (version + sha256)
+# Fully automatic releases with release-please (Conventional Commits, see AGENTS.md):
+#   push to main  → release-please opens/updates a "release PR" (next version + CHANGELOG)
+#   merge that PR → tag + GitHub release are created, then this workflow
+#                   builds and signs GifPaste.app, attaches the zip and updates the Homebrew cask.
 #
 # Secrets:
 #   SIGNING_CERT_P12_BASE64, SIGNING_CERT_PASSWORD  (scripts/create-signing-cert.sh)
-#   TAP_DEPLOY_KEY                                    (deploy key with write access to homebrew-tap)
+#   TAP_DEPLOY_KEY                                    (deploy key with write access to isibeni/homebrew-tap)
 name: Release
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: release
   cancel-in-progress: false
 
 jobs:
-  release:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+      version: ${{ steps.rp.outputs.version }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  build:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
     runs-on: macos-15
+    env:
+      VERSION: ${{ needs.release-please.outputs.version }}
+      TAG: ${{ needs.release-please.outputs.tag_name }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set version
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
 
       - name: Import signing certificate
         env:
@@ -52,12 +71,10 @@ jobs:
       - name: Build
         run: scripts/build.sh zip
 
-      - name: Publish GitHub release
+      - name: Attach zip to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "$GITHUB_REF_NAME" "GifPaste-$VERSION.zip" \
-            --title "GifPaste $VERSION" --generate-notes
+        run: gh release upload "$TAG" "GifPaste-$VERSION.zip" --clobber
 
       - name: Update Homebrew cask
         env:
