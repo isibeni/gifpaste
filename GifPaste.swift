@@ -278,6 +278,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
         get { UserDefaults.standard.object(forKey: "includeGifExtension") as? Bool ?? false }
         set { UserDefaults.standard.set(newValue, forKey: "includeGifExtension") }
     }
+    /// Apps that only accept a pasted image when the file name ends in ".gif" (e.g. Microsoft Teams).
+    private static let appsRequiringGifExtension: Set<String> = ["com.microsoft.teams2", "com.microsoft.teams"]
+    private var targetRequiresGifExtension: Bool {
+        previousApp?.bundleIdentifier.map { Self.appsRequiringGifExtension.contains($0) } ?? false
+    }
 
     private var previousApp: NSRunningApplication?
     private var gifs: [GiphyGif] = []
@@ -773,7 +778,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSSearchFieldDelegate,
 
     private func pasteSelected(copyOnly: Bool) {
         guard !isPasting, selectedIndex < gifs.count, let url = gifs[selectedIndex].originalURL else { return }
-        let name = gifs[selectedIndex].fileName(searchTerm: lastQuery, withExtension: includeGifExtension)
+        let name = gifs[selectedIndex].fileName(
+            searchTerm: lastQuery, withExtension: includeGifExtension || targetRequiresGifExtension)
         isPasting = true
         setStatus("Downloading GIF…")
         Task { [weak self] in

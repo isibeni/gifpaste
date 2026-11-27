@@ -34,7 +34,7 @@ Requires the Xcode Command Line Tools (`xcode-select --install`).
 
 An empty search shows trending GIFs. Clicking a GIF also pastes it.
 
-The GIF is pasted as a file named after your search term (for example `thumbs up`). Slack and similar apps show that name next to the GIF. Trending GIFs use their GIPHY title instead. By default the name has no ".gif" (e.g. `thumbs up`). To add it, tick "Add .gif to File Name" in the menu bar menu. Slack still shows it as an animated GIF.
+The GIF is pasted as a file named after your search term (for example `thumbs up`). Slack and similar apps show that name next to the GIF. Trending GIFs use their GIPHY title instead. By default the name has no ".gif" (e.g. `thumbs up`). To add it, tick "Add .gif to File Name" in the menu bar menu. Microsoft Teams always gets the ".gif", because it only accepts pasted images with it (Teams doesn't show the name). Slack still shows it as an animated GIF.
 
 ## Notes
 
