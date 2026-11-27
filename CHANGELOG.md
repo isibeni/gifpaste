@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/isibeni/gifpaste/compare/v0.1.0...v0.1.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* always add .gif extension when pasting into Microsoft Teams ([ee0cb33](https://github.com/isibeni/gifpaste/commit/ee0cb33f5fa369c2ce6531c0667d52d2e7c0dfce))
+
 ## [0.1.0](https://github.com/isibeni/gifpaste/compare/v0.0.2...v0.1.0) (2026-11-26)
 
 
